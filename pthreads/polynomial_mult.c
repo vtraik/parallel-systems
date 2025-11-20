@@ -5,7 +5,12 @@
 #include <pthread.h>
 #include <math.h>
 
-#define BLOCK_SIZE 128    // block size, test
+void perror_exit(const char* mes){
+  perror(mes);
+  exit(EXIT_FAILURE);
+}
+
+#define BLOCK_SIZE 256    // block size, test
                           
 int* pol1 = NULL; 
 int* pol2 = NULL;
@@ -101,6 +106,7 @@ int main(int argc, const char** argv){
     // time serial
     clock_gettime(CLOCK_MONOTONIC, &start_t);
     if(n <= 20000){ // experiment for value
+        printf("in r\n");
         for(int i=0; i<n+1; i++){
             for(int j=0; j<n+1; j++){
                 prod_serial[i+j] += pol1[i]*pol2[j]; 
@@ -119,7 +125,7 @@ int main(int argc, const char** argv){
                 }
             }
         }
-    }
+     } 
     clock_gettime(CLOCK_MONOTONIC, &end_t);
 
     total = (end_t.tv_sec - start_t.tv_sec)
@@ -131,6 +137,7 @@ int main(int argc, const char** argv){
     // time parallel
     // each thread computes n/thread_count k's in prod_par[k]
     int elements_per_thread = ceilf(((float)2*n+1)/threads);
+    if(threads > 2*n+1) threads = 2*n+1;
     pthread_t thread[threads];
     Tdata data[threads];
 
@@ -140,11 +147,13 @@ int main(int argc, const char** argv){
         data[i].end_index=(i+1)*elements_per_thread;
         data[i].n = n; 
         if(data[i].end_index > 2*n+1) data[i].end_index = 2*n+1;
-        pthread_create(&thread[i],NULL,par_mul,&data[i]);
+        if(pthread_create(&thread[i],NULL,par_mul,&data[i]) != 0)
+            perror_exit("pthread_create");
     }
     
     for(int i=0; i<threads; i++){
-        pthread_join(thread[i],NULL);
+        if(pthread_join(thread[i],NULL) != 0)
+            perror_exit("pthread_join");
     }
     clock_gettime(CLOCK_MONOTONIC, &end_t);
     total = (end_t.tv_sec - start_t.tv_sec)
