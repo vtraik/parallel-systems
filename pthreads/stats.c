@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-void perror_exit(const char* mes){
-  perror(mes);
+void error_exit(int errnum, const char* mes){
+    char buf[256];
+    strerror_r(errnum, buf, sizeof(buf));   // use rc, not errno
+    fprintf(stderr, "%s: %s\n", mes,buf);
   exit(EXIT_FAILURE);
 }
 
@@ -107,16 +109,18 @@ int main(int argc, const char** argv){
     // time parallel
     pthread_t thread[4];
     Tdata data[4]; 
+    int errnu;
     clock_gettime(CLOCK_MONOTONIC, &start_t);
     for(int i=0; i<4; i++){
         data[i].array = arrays[i];
         data[i].size = size;
         data[i].index = i;
-        if(pthread_create(&thread[i],NULL,analyze_parallel,&data[i]) != 0) perror_exit("pthread_create");
+        if((errnu = pthread_create(&thread[i],NULL,analyze_parallel,&data[i])) != 0)
+            error_exit(errnu,"pthread_create");
     }
     for(int i=0; i<4; i++){
-        if(pthread_join(thread[i],NULL) != 0)
-            perror_exit("pthread_join");
+        if((errnu = pthread_join(thread[i],NULL)) != 0)
+            error_exit(errnu,"pthread_join");
     }
     clock_gettime(CLOCK_MONOTONIC, &end_t);
 

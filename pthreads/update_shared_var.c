@@ -5,10 +5,13 @@
 #include <stdint.h>
 #include <time.h>
 
-void perror_exit(const char* mes){
-  perror(mes);
+void error_exit(int errnum, const char* mes){
+    char buf[256];
+    strerror_r(errnum, buf, sizeof(buf));   // use rc, not errno
+    fprintf(stderr, "%s: %s\n", mes,buf);
   exit(EXIT_FAILURE);
 }
+
 
 typedef struct {
    int* shared;
@@ -22,10 +25,13 @@ void* update_with_mut(void* args){
     int* shared = (int*)((Tdata*) args)->shared;
     int iter = (int)((Tdata*) args)->iter;
 
+    int errnu;
     for(int i=0; i<iter; i++){
-        if(pthread_mutex_lock(&shared_mut) != 0) perror_exit("pthread_mutex_lock");
+        if((errnu = pthread_mutex_lock(&shared_mut)) != 0)
+            error_exit(errnu,"pthread_mutex_lock");
         (*shared)++;
-        if(pthread_mutex_unlock(&shared_mut) != 0) perror_exit("pthread_mutex_unlock");
+        if((errnu = pthread_mutex_unlock(&shared_mut)) != 0) 
+            error_exit(errnu,"pthread_mutex_unlock");
     }
 
     return NULL;
@@ -35,10 +41,13 @@ void* update_with_rw(void* args){
     int* shared = (int*)((Tdata*) args)->shared;
     int iter = (int)((Tdata*) args)->iter;
 
+    int errnu;
     for(int i=0; i<iter; i++){
-        if(pthread_rwlock_wrlock(&shared_rw) != 0) perror_exit("pthread_mutex_lock");
+        if((errnu = pthread_rwlock_wrlock(&shared_rw)) != 0)
+            error_exit(errnu,"pthread_mutex_lock");
         (*shared)++;
-        if(pthread_rwlock_unlock(&shared_rw) != 0) perror_exit("pthread_mutex_unlock");
+        if((errnu = pthread_rwlock_unlock(&shared_rw)) != 0)
+            error_exit(errnu,"pthread_mutex_unlock");
     }
 
     return NULL;
@@ -70,11 +79,14 @@ int main(int argc, const char** argv){
     uint8_t choice_ = 0;
     struct timespec start_t, end_t;
 
+    int errnu;
     if(strcmp(choice,"m") == 0){
-        if(pthread_mutex_init(&shared_mut,NULL) != 0) perror_exit("pthread_mutex_init");
+        if((errnu = pthread_mutex_init(&shared_mut,NULL)) != 0)
+            error_exit(errnu,"pthread_mutex_init");
         funct = update_with_mut;
     }else if(strcmp(choice,"rw") == 0){
-        if(pthread_rwlock_init(&shared_rw,NULL) != 0) perror_exit("pthread_rwlock_init");
+        if((errnu = pthread_rwlock_init(&shared_rw,NULL)) != 0)
+            error_exit(errnu,"pthread_rwlock_init");
         funct = update_with_rw;
         choice_ = 1;
     }else if(strcmp(choice,"a") == 0) {
@@ -88,10 +100,12 @@ int main(int argc, const char** argv){
 
     clock_gettime(CLOCK_MONOTONIC, &start_t);
     for(int i=0; i<threads; i++){
-        if(pthread_create(&thread[i],NULL,funct,&data) != 0) perror_exit("pthread_create");
+        if((errnu = pthread_create(&thread[i],NULL,funct,&data)) != 0)
+            error_exit(errnu,"pthread_create");
     }
     for(int i=0; i<threads; i++){
-        if(pthread_join(thread[i],NULL) != 0) perror_exit("pthread_join");
+        if((errnu = pthread_join(thread[i],NULL)) != 0)
+            error_exit(errnu,"pthread_join");
     }
     clock_gettime(CLOCK_MONOTONIC, &end_t);
     double total = (end_t.tv_sec - start_t.tv_sec)
@@ -103,9 +117,11 @@ int main(int argc, const char** argv){
     printf("Time: %.9f\n",total);
 
     if(choice_ == 0){
-        if(pthread_mutex_destroy(&shared_mut) != 0) perror_exit("pthread_mutex_destroy");
+        if((errnu = pthread_mutex_destroy(&shared_mut)) != 0) 
+            error_exit(errnu,"pthread_mutex_destroy");
     }else if(choice_ == 1){
-        if(pthread_rwlock_destroy(&shared_rw) != 0) perror_exit("pthread_rwlock_destroy");
+        if((errnu = pthread_rwlock_destroy(&shared_rw)) != 0) 
+            error_exit(errnu,"pthread_rwlock_destroy");
     }
 
 

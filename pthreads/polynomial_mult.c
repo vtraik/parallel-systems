@@ -5,8 +5,10 @@
 #include <pthread.h>
 #include <math.h>
 
-void perror_exit(const char* mes){
-  perror(mes);
+void error_exit(int errnum, const char* mes){
+    char buf[256];
+    strerror_r(errnum, buf, sizeof(buf));   // use rc, not errno
+    fprintf(stderr, "%s: %s\n", mes,buf);
   exit(EXIT_FAILURE);
 }
 
@@ -142,18 +144,19 @@ int main(int argc, const char** argv){
     Tdata data[threads];
 
     clock_gettime(CLOCK_MONOTONIC, &start_t);
+    int errnu;
     for(int i=0; i<threads; i++){
         data[i].start_index=i*elements_per_thread;
         data[i].end_index=(i+1)*elements_per_thread;
         data[i].n = n; 
         if(data[i].end_index > 2*n+1) data[i].end_index = 2*n+1;
-        if(pthread_create(&thread[i],NULL,par_mul,&data[i]) != 0)
-            perror_exit("pthread_create");
+        if((errnu = pthread_create(&thread[i],NULL,par_mul,&data[i])) != 0)
+            error_exit(errnu,"pthread_create");
     }
     
     for(int i=0; i<threads; i++){
-        if(pthread_join(thread[i],NULL) != 0)
-            perror_exit("pthread_join");
+        if((errnu = pthread_join(thread[i],NULL)) != 0)
+            error_exit(errnu,"pthread_join");
     }
     clock_gettime(CLOCK_MONOTONIC, &end_t);
     total = (end_t.tv_sec - start_t.tv_sec)
