@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 
 void error_exit(int errnum, const char* mes){
