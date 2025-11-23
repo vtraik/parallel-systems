@@ -7,7 +7,7 @@
 
 void error_exit(int errnum, const char* mes){
     char buf[256];
-    strerror_r(errnum, buf, sizeof(buf));   // use rc, not errno
+    strerror_r(errnum, buf, sizeof(buf));
     fprintf(stderr, "%s: %s\n", mes,buf);
   exit(EXIT_FAILURE);
 }
