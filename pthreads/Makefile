@@ -36,7 +36,7 @@ $(POL_TAR): $(POL_OBJS)
 $(SHVAR_TAR): $(SHVAR_OBJS)
 	$(CC) $(SHVAR_OBJS) -o $@ $(LIBS)
 
-$(STATS): $(STATS_OBJS)
+$(STATS_TAR): $(STATS_OBJS)
 	$(CC) $(STATS_OBJS) -o $@ $(LIBS) 
 
 $(BANK_TAR): $(BANK_OBJS)
