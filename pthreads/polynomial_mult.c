@@ -105,7 +105,6 @@ int main(int argc, const char** argv){
                + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Init time: %.9f\n",total);
 
-    if(threads > 1) goto PAR;
 
     // time serial
     clock_gettime(CLOCK_MONOTONIC, &start_t);
@@ -135,7 +134,6 @@ int main(int argc, const char** argv){
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Serial time: %.9f\n",total);
 
-PAR:
     // time parallel
     // each thread computes n/thread_count k's in prod_par[k]
     int elements_per_thread = ceilf(((float)2*n+1)/threads);
