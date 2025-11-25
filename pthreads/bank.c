@@ -9,7 +9,7 @@
 
 void error_exit(int errnum, const char* mes){
     char buf[256];
-    strerror_r(errnum, buf, sizeof(buf));   // use rc, not errno
+    strerror_r(errnum, buf, sizeof(buf)); 
     fprintf(stderr, "%s: %s\n", mes,buf);
   exit(EXIT_FAILURE);
 }
@@ -32,7 +32,7 @@ void* thread_work(void* args){
             int pos_lock = locks_size == 1 ? 0 : pos;
             if((errnu = lock(locks[pos_lock],type,READ)) != 0)
                 error_exit(errnu,"lock");
-            /* usleep(500); */
+            /* usleep(100); */
             sum += acc_balances[pos];
             if((errnu = unlock(locks[pos_lock],type)) != 0)
                 error_exit(errnu,"unlock");

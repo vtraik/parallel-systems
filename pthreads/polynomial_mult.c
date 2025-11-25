@@ -13,7 +13,7 @@ void error_exit(int errnum, const char* mes){
   exit(EXIT_FAILURE);
 }
 
-#define BLOCK_SIZE 256    // block size, test
+#define BLOCK_SIZE 128
                           
 int* pol1 = NULL; 
 int* pol2 = NULL;
@@ -43,7 +43,7 @@ int get_rand(int min, int max){
 
 void* par_mul(void* args){
     Tdata* data = (Tdata*) args;
-    if(data->end_index - data->start_index < 20000){ // wrong 20k , might need fix
+    if(data->end_index - data->start_index <= 1024){
         for(int k=data->start_index; k<data->end_index; k++){
             int sum = 0;
             int start_i = (k > data->n) ? k-data->n : 0;
@@ -105,11 +105,11 @@ int main(int argc, const char** argv){
                + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Init time: %.9f\n",total);
 
+    if(threads > 1) goto PAR;
 
     // time serial
     clock_gettime(CLOCK_MONOTONIC, &start_t);
-    if(n <= 20000){ // experiment for value
-        printf("in r\n");
+    if(n < 1024){ // experiment for value
         for(int i=0; i<n+1; i++){
             for(int j=0; j<n+1; j++){
                 prod_serial[i+j] += pol1[i]*pol2[j]; 
@@ -135,8 +135,7 @@ int main(int argc, const char** argv){
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Serial time: %.9f\n",total);
 
-
-
+PAR:
     // time parallel
     // each thread computes n/thread_count k's in prod_par[k]
     int elements_per_thread = ceilf(((float)2*n+1)/threads);

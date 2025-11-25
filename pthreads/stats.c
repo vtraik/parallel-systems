@@ -18,29 +18,32 @@ typedef struct {
    int index;
 } Tdata;
 
-/* struct array_stats_s { */
-/*      long long int info_array_0; */
-/*      long long int info_array_1; */
-/*      long long int info_array_2; */
-/*      long long int info_array_3; */
-/* } array_stats_par, array_stats_serial; */
-struct array_stats_s {
-     long long int info_array_0;
-     long long int info_array_1;
-     long long int info_array_2;
-     long long int info_array_3;
-} array_stats_serial;
+#ifdef IMPROVED
+    struct array_stats_s {
+         long long int info_array_0;
+         long long int info_array_1;
+         long long int info_array_2;
+         long long int info_array_3;
+    } array_stats_serial;
 
-struct array_stats {
-     long long int info_array_0;
-     int64_t pad[7];
-     long long int info_array_1;
-     int64_t pad2[7];
-     long long int info_array_2;
-     int64_t pad3[7];
-     long long int info_array_3;
-     int64_t pad4[7];
-} array_stats_par;
+    struct array_stats {
+         long long int info_array_0;
+         int64_t pad[7];
+         long long int info_array_1;
+         int64_t pad2[7];
+         long long int info_array_2;
+         int64_t pad3[7];
+         long long int info_array_3;
+         int64_t pad4[7];
+    } array_stats_par;
+#else
+    struct array_stats_s {
+         long long int info_array_0;
+         long long int info_array_1;
+         long long int info_array_2;
+         long long int info_array_3;
+    } array_stats_par, array_stats_serial;
+#endif
 
 int get_rand(int min, int max){
     return min + rand() % (max-min+1);
@@ -60,10 +63,17 @@ void* analyze_parallel(void* args){
     int* arr = ((Tdata*) args)->array; 
     int size = ((Tdata*) args)->size; 
     int index = ((Tdata*) args)->index; 
+    int offset;
+
+    #ifdef IMPROVED
+        offset = 8;
+    #else
+        offset = 1;
+    #endif
+
     for(int i=0; i<size; i++){
         if(arr[i] != 0)
-            (*((long long int*)&array_stats_par + index*8))++;
-            /* (*((long long int*)&array_stats_par + index))++; */
+            (*((long long int*)&array_stats_par + index*offset))++;
     }
 
     return NULL;
@@ -75,7 +85,6 @@ int main(int argc, const char** argv){
         exit(EXIT_FAILURE);
     }
     int size = atoi(argv[2]);
-    printf("size of lli: %lu\n",sizeof(long long int));
     // time init
     struct timespec start_t, end_t;
     clock_gettime(CLOCK_MONOTONIC, &start_t);
@@ -128,16 +137,22 @@ int main(int argc, const char** argv){
     double par_total = (end_t.tv_sec - start_t.tv_sec)
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Parallel time: %.9f\n",par_total);
-    printf("Speedup: %.4f\n",total/par_total);
     
     // check
     uint8_t ok = 1;
+    int offset;
+
+    #ifdef IMPROVED
+        offset = 8;
+    #else
+        offset = 1;
+    #endif
+
     for(int i=0; i<4; i++){
         long long int serial_i = 
             *((long long int*)&array_stats_serial + i);
         long long int parallel_i = 
-            *((long long int*)&array_stats_par + i*8);
-        printf("serial_i: %lld | par_i: %lld\n",serial_i,parallel_i);
+            *((long long int*)&array_stats_par + i*offset);
  
         if(serial_i != parallel_i){
             fprintf(stderr,"Serial and Parallel dont match\n");
