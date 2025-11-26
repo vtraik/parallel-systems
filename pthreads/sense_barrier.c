@@ -20,7 +20,7 @@ void thread_barrier_wait(thread_barrier *barrier){
             pthread_mutex_unlock(&(barrier->lock));
         } else {
             pthread_mutex_unlock(&(barrier->lock));
-            while (barrier->flag != local_sense); // wait for flag
+            while (barrier->flag != local_sense);
         }
     }
 }
