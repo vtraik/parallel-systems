@@ -1,28 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <time.h>
 #include <omp.h>
 
-void error_exit(int errnum, const char* mes){
-    char buf[256];
-    strerror_r(errnum, buf, sizeof(buf));
-    fprintf(stderr, "%s: %s\n", mes,buf);
-    exit(EXIT_FAILURE);
-}
-
-#define BLOCK_SIZE 128
-                          
 int* pol1 = NULL; 
 int* pol2 = NULL;
 int* prod_par = NULL;
-
-typedef struct {
-   int start_index;
-   int end_index;
-   int n;
-} Tdata;
 
 void print_pol(int* pol, int n){
     printf("[");
@@ -48,7 +32,6 @@ double par_mul(int n, int threads){
         int sum = 0;
         int start_i = (k > n) ? k-n : 0;
         int end_i = (k < n) ? k : n;
-        int i = start_i;
         #pragma omp simd reduction(+:sum)
         for(int i=start_i; i<=end_i; ++i){
             sum += pol1[i]*pol2[k-i];
@@ -76,8 +59,6 @@ int main(int argc, const char** argv){
     int* prod_serial = calloc(2*n+1,sizeof(int));
     prod_par = calloc(2*n+1,sizeof(int));
 
-    int seed = 1; // should change to time null
-    /* srand(seed); */
     srand(time(NULL));
 
     // time init

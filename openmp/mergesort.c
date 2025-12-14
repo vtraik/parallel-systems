@@ -26,10 +26,9 @@ void merge(int* array, int left, int middle, int right){
         R = alloca((size_right)*sizeof(int));
     }
 
-    /* #pragma omp simd  */ // They give ~0.4sec in parallel, i'll think if i will keep them 
     for(int i=0; i<size_left; ++i)
         L[i] = array[left + i];
-    /* #pragma omp simd  */
+
     for(int i=0; i<size_right; ++i)
         R[i] = array[middle+1+i];
 
@@ -66,15 +65,9 @@ void serial_mergesort(int* array, int left, int right){
     merge(array,left,middle,right);
 }
 
-/* void parallel_mergesort(int* array, int left, int right, int depth){ // depth ? */
-void parallel_mergesort(int* array, int left, int right){ // depth ?
+void parallel_mergesort(int* array, int left, int right){
     if(left >= right) return;
     int middle = left + (right - left) / 2;
-
-    /* #pragma omp task shared(array) firstprivate(left,middle,depth) if(depth<6) */
-    /* {parallel_mergesort(array,left,middle,depth+1);} */
-    /* #pragma omp task shared(array) firstprivate(middle,right,depth) if(depth<6) */
-    /* {parallel_mergesort(array,middle+1,right,depth+1);} */
 
     #pragma omp task shared(array) firstprivate(left,middle) if(middle-left+1 > 20000)
     {parallel_mergesort(array,left,middle);}
@@ -106,9 +99,9 @@ int main(int argc, char** argv){
     int threads = atoi(argv[6]);
     double total;
 
-    int seed = 1; // should change to time null
+    int seed = 1;
     srand(seed);
-    /* srand(time(NULL)); */
+    
 
 
     if(strcmp(choice,"s") == 0){
@@ -121,17 +114,13 @@ int main(int argc, char** argv){
         exit(EXIT_FAILURE);
     }
 
-    /* printf("size: %d\n",size); */
     int* array = malloc(size*sizeof(int));
     for(int i=0; i<size; ++i){
         array[i] = get_rand_int();
-        /* printf("%d ",array[i]); */
     }
-    /* printf("\n\n"); */
 
     // time choice 
     if(is_serial){
-        printf("Calling Serial\n");
         clock_gettime(CLOCK_MONOTONIC, &start_t);
         serial_mergesort(array,0,size-1);
         clock_gettime(CLOCK_MONOTONIC, &end_t);
@@ -152,10 +141,6 @@ int main(int argc, char** argv){
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("%s time: %.9f\n",s_choice,total);
 
-    /* for(int i=0; i<size; ++i){ */
-    /*     printf("%d ",array[i]); */
-    /* } */
-    /* printf("\n"); */
 
     // check if it is ordered 
     uint8_t sorted = 1;
@@ -172,7 +157,4 @@ int main(int argc, char** argv){
 
     free(array);
 }
-
-
-
 

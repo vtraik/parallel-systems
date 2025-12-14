@@ -4,6 +4,8 @@
 #include <omp.h>
 #include <string.h>
 
+#define PAR // if defined , parallel matrix_mul runs, else serial
+
 void print_vector(int* vec, int n){
     for(int i=0; i<n; ++i)
         printf("%d ",vec[i]);
@@ -22,24 +24,23 @@ int get_rand(int perc, int min, int max){
     return r;
 }
 
-void csr_vect_mult(int* values, int* row_index,int* col_index, int* x, int* y, int n, int iter, int threads){
+void csr_vect_mult(int* values, int* row_index,int* col_index,
+                   int* x, int* y, int n, int iter, int threads){
     #pragma omp parallel num_threads(threads)
     {
-    for(int it=0; it<iter; ++it){
-        #pragma omp parallel for
-        for(int i=0; i<n; ++i){
-            int sum = 0;
-            for(int k=row_index[i]; k<row_index[i+1]; ++k)
-                sum += values[k] * x[col_index[k]];
-            
-            y[i] = sum;
+        for(int it=0; it<iter; ++it){
+            #pragma omp for
+            for(int i=0; i<n; ++i){
+                int sum = 0;
+                for(int k=row_index[i]; k<row_index[i+1]; ++k)
+                    sum += values[k] * x[col_index[k]];
+                
+                y[i] = sum;
+            }
+
+            #pragma omp single
+            memcpy(x,y,n*sizeof(int)); // copy to x the result
         }
-
-        #pragma omp barrier // works with that, weird
-
-        #pragma omp single
-        memcpy(x,y,n*sizeof(int)); // copy to x the result
-    }
     }
 }
 
@@ -48,25 +49,23 @@ void mat_vect_mult(int* array, int*  x, int* y, int n, int iter, int threads){
     #pragma omp parallel num_threads(threads)
     #endif
     {
-    for(int it=0; it<iter; ++it){ 
-        #ifdef PAR 
-        #pragma omp parallel for 
-        #endif 
-        for(int i=0; i<n; ++i){
-            int sum = 0;
-            for(int j=0; j<n; ++j)
-                sum += array[i*n+j] * x[j];
-            
-            y[i] = sum;
+        for(int it=0; it<iter; ++it){ 
+            #ifdef PAR 
+            #pragma omp for 
+            #endif 
+            for(int i=0; i<n; ++i){
+                int sum = 0;
+                for(int j=0; j<n; ++j)
+                    sum += array[i*n+j] * x[j];
+                
+                y[i] = sum;
+            }
+
+            #ifdef PAR 
+            #pragma omp single
+            #endif
+            memcpy(x,y,n*sizeof(int)); // copy to x the result
         }
-
-        #ifdef PAR 
-        #pragma omp barrier // works with that, weird
-
-        #pragma omp single
-        #endif
-        memcpy(x,y,n*sizeof(int)); // copy to x the result
-    }
     }
 }
 
@@ -83,9 +82,9 @@ int main(int argc, char** argv){
     int iter = atoi(argv[6]);
     int threads = atoi(argv[8]);
 
-    int seed = 1; // time null
-    srand(seed);
+    srand(time(NULL));
 
+    // init dense matrix, vector
     int* array = malloc(n*n*sizeof(*array));
     int* vector = malloc(n*sizeof(*vector));
     int* vector_in_dense = malloc(n*sizeof(*vector_in_dense));
@@ -102,31 +101,25 @@ int main(int argc, char** argv){
     }
     memcpy(vector_in_dense,vector,n*sizeof(int));
 
-    /* printf("\narray\n"); */
-    /* print_vector(array,n*n); */
-    /* printf("\ninput\n"); */
-    /* print_vector(vector,n); */
 
-    // init csr
+    // init csr in parallel
     double ini_plus_time = 0.0;
     clock_gettime(CLOCK_MONOTONIC, &start_t);
     int non_zero = n*n - zer;
     int* values = malloc(non_zero*sizeof(*values));
     int* col_index = malloc(non_zero*sizeof(*col_index));
     int* row_index = malloc((n+1)*sizeof(*row_index));
-    int val_col_ind = 0, row_ind = 0, current_nz = 0;
-    #ifdef PARINIT
     int* row_nz = malloc((n+1)*sizeof(*row_index));
+
     #pragma omp parallel num_threads(threads)
     {
-        #pragma omp parallel for
+        #pragma omp for
         for(int i=0; i<n; ++i){
             int nz_count = 0;
             for(int j=0; j<n; ++j){
                 if(array[i*n+j] != 0)
                     ++nz_count;
             }
-            /* row_index[i] = i-1 >= 0 ? row_index[i-1] + nz_count : nz_count; */
             row_nz[i] = nz_count; 
         }
 
@@ -137,7 +130,7 @@ int main(int argc, char** argv){
             row_index[i+1] = row_index[i] + row_nz[i];
         }
 
-        #pragma omp parallel for
+        #pragma omp for
         for(int i=0; i<n; ++i){
             int p = row_index[i];
             for(int j=0; j<n; ++j){
@@ -149,39 +142,15 @@ int main(int argc, char** argv){
             }
         }
     }
-    #else
-    for(int i=0; i<n*n; ++i){
-        if(i%n == 0){ // in every row change (when cols restart), update row 
-            row_index[row_ind++] = current_nz;
-        }
-        if(array[i] != 0){
-            values[val_col_ind] = array[i];
-            col_index[val_col_ind] = i%n;
-            ++val_col_ind;
-            ++current_nz;
-        }
-    }
-    row_index[row_ind] = current_nz;
-    #endif
 
     clock_gettime(CLOCK_MONOTONIC, &end_t);
-
-    /* printf("\nvalues\n"); */
-    /* print_vector(values,non_zero); */
-    /* printf("\nrow\n"); */
-    /* print_vector(row_index,n+1); */
-    /* printf("\ncol\n"); */
-    /* print_vector(col_index,non_zero); */
 
 
     double total_time = (end_t.tv_sec - start_t.tv_sec)
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
     printf("Init csr time: %f\n",total_time);
     ini_plus_time = total_time;
-    /* printf("\narray:\n"); */
-    /* print_vector(array,n*n); */
-    /* printf("\nvector:\n"); */
-    /* print_vector(vector,n); */
+
 
     // csr parall
     clock_gettime(CLOCK_MONOTONIC, &start_t);
@@ -193,15 +162,11 @@ int main(int argc, char** argv){
     ini_plus_time += total_time;
     printf("CSR init + time: %f\n",ini_plus_time);
 
-    /* printf("\nresult_csr:\n"); */
-    /* print_vector(out_vector,n); */
     
     free(values);
     free(col_index);
     free(row_index);
-    #ifdef PARINIT
     free(row_nz);
-    #endif
 
     // dense parall
     clock_gettime(CLOCK_MONOTONIC, &start_t);
@@ -209,15 +174,14 @@ int main(int argc, char** argv){
     clock_gettime(CLOCK_MONOTONIC, &end_t);
     total_time = (end_t.tv_sec - start_t.tv_sec)
             + (end_t.tv_nsec - start_t.tv_nsec) / 1e9;
+
     #ifdef PAR
-    printf("Dense parallel time: %f\n",total_time);
+        printf("Dense parallel time: %f\n",total_time);
     #else
-    printf("Dense serial time: %f\n",total_time);
+        printf("Dense serial time: %f\n",total_time);
     #endif
 
-    /* printf("\nresult_dense:\n"); */
-    /* print_vector(out_vector,n); */
-    
+   
     free(array);
     free(vector);
     free(out_vector);
