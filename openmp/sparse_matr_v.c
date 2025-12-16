@@ -51,7 +51,7 @@ void mat_vect_mult(int* array, int*  x, int* y, int n, int iter, int threads){
     {
         for(int it=0; it<iter; ++it){ 
             #ifdef PAR 
-            #pragma omp for 
+            #pragma omp for
             #endif 
             for(int i=0; i<n; ++i){
                 int sum = 0;
@@ -123,7 +123,7 @@ int main(int argc, char** argv){
             row_nz[i] = nz_count; 
         }
 
-       
+
         #pragma omp single
         row_index[0] = 0;
         for(int i=0; i<n; ++i){
