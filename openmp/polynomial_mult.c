@@ -46,7 +46,7 @@ double par_mul(int n, int threads){
 
 int main(int argc, const char** argv){
     if(argc != 5){
-        fprintf(stderr,"Usage: ./%s -n <polynomial degree> -t <num of threads>\n",argv[0]);
+        fprintf(stderr,"Usage: %s -n <polynomial degree> -t <num of threads>\n",argv[0]);
         exit(EXIT_FAILURE);
     }
     struct timespec start_t, end_t;

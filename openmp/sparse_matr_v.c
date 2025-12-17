@@ -71,7 +71,7 @@ void mat_vect_mult(int* array, int*  x, int* y, int n, int iter, int threads){
 
 int main(int argc, char** argv){
     if(argc != 9){
-        fprintf(stderr,"Usage: ./%s -n <size of nxn matrix> -p <perc of 0>\
+        fprintf(stderr,"Usage: %s -n <size of nxn matrix> -p <perc of 0>\
                 -i <iter count> -t <num of threads>\n",argv[0]);
         exit(EXIT_FAILURE);
     }

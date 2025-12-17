@@ -88,7 +88,7 @@ int get_rand_int(){
 
 int main(int argc, char** argv){
     if(argc != 7){
-        fprintf(stderr,"Usage: ./%s -n <array size> -c <choice:s,p> -t <num of threads>\n",argv[0]);
+        fprintf(stderr,"Usage: %s -n <array size> -c <choice:s,p> -t <num of threads>\n",argv[0]);
         exit(EXIT_FAILURE);
     }
     struct timespec start_t, end_t;
