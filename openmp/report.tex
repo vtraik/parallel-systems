@@ -14,6 +14,12 @@
 \usepackage{longtable}
 % ensure floats appear before section text when desired
 \usepackage{placeins}
+% code/listing support for run commands
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible}
+
+% Macro to show how to run binaries in a consistent way
+\newcommand{\runcmd}[1]{\vspace{6pt}\noindent\textbf{Run: }\lstinline!#1!\par}
 
 \usepackage[english,greek]{babel}
 % helper to typeset short English fragments when main language is Greek
@@ -44,6 +50,9 @@ $res_k = \sum_{i=0}^{k}a_i \cdot b_{k-i}$. Αυτό επιτρέπει τη μη
 γράφει σε διαφορετικές θέσεις. Η παράλληλη υλοποίηση χρησιμοποιεί την οδηγία (\en{omp parallel for}) για 
 τον βρόχο των κ επαναλήψεων και την οδηγία (\en{omp simd reduction(+:sum)}) για την \en{simd} εκτέλεση του
 πολλαπλασιασμού στον εσωτερικό βρόχο ($\sim$ 1\en{sec} πιο γρήγορο για αρκούντως μεγάλα πολυώνυμα).
+% Example run command for this section
+\\
+\en{\runcmd{./polynomial_mult -n <degree> -t <threads>}}
 
 
 % Figures for Polynomial Multiplication
@@ -89,7 +98,8 @@ $res_k = \sum_{i=0}^{k}a_i \cdot b_{k-i}$. Αυτό επιτρέπει τη μη
 νήμα στο τέλος αντιγράφει το \en{output vector y} στο \en{x} για την επόμενη επανάληψη.
 Αν το \en{PAR} έχει οριστεί, τρέχει ο \en{dense parallel} αλγόριθμος αλλιώς ο απλός σειριακός (\en{dense serial, 
 default: PAR}).
-
+\\
+\en{\runcmd{./sparse -n <matrix size> -p <sparsity:0-100> -i <iterations> -t <threads>}}
 
 \underline{Σημείωση}: 
 Όλα τα πειράματα υπάρχουν και στο \en{csv} αρχείο: \en{benchmarks\_sparse.csv}.
@@ -153,11 +163,14 @@ default: PAR}).
 \ref{fig:sparse_densepar_csr},\ref{fig:sparse_densepar_csrtotal}). 
 
 \section{\en{Mergesort with tasks}}
+% Example run command for this section
 Η τρίτη άσκηση αφορά την αποδοτική υλοποίηση του \en{mergesort} με τη χρήση των \en{tasks} της \en{Openmp}.
 Η σειριακή υλοποίηση είναι η γνωστή. Η παράλληλη δημιουργεί ένα παράλληλο \en{block} πρώτα \en{n} νημάτων
 και ένα απο αυτά καλεί την συνάρτηση \en{parallel\_mergesort}. Μέσα στη συνάρτηση τα \en{tasks} δημιουργούνται
 αν οι υποπίνακες είναι αρκούντως μεγάλοι ($>$ 20000, οπού η τιμή βρέθηκε μετά από πειράματα). Το νήμα που δημιουργεί
 τα \en{tasks} περιμένει να ολοκληρώσουν μέσω της \en{taskwait}.
+\\
+\en{\runcmd{./mergesort -n <input_size> -c <choice:s,p> -t<threads>}}
 
 \underline{Σημείωση}: 
 Τα πειράματα υπάρχουν και στο \en{csv} αρχείο: \en{benchmarks\_mergesort.csv}.
