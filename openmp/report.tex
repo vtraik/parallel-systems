@@ -39,12 +39,11 @@
 \section{\en{Polynomial Multiplication}}
 Η πρώτη άσκηση επικεντρώνεται στον πολλαπλασιασμό πολυωνύμων βαθμού \en{n}.
 Ο σειριακός αλγόριθμος ακολουθεί την απλή υλοποίηση $\mathcal{O}(n^2)$ χρόνου.
-Στον παράλληλο, κάθε νήμα υπολογίζει ένα εύρος του διανύσματος αποτελέσματος μεγέθους
-$\left\lceil (2n+1)/nthreads \right\rceil$, σύμφωνα με τον τύπο: 
+Στον παράλληλο, κάθε νήμα υπολογίζει ένα εύρος του διανύσματος αποτελέσματος σύμφωνα με τον τύπο: 
 $res_k = \sum_{i=0}^{k}a_i \cdot b_{k-i}$. Αυτό επιτρέπει τη μη χρήση συγχρονισμού αφού κάθε νήμα
 γράφει σε διαφορετικές θέσεις. Η παράλληλη υλοποίηση χρησιμοποιεί την οδηγία (\en{omp parallel for}) για 
 τον βρόχο των κ επαναλήψεων και την οδηγία (\en{omp simd reduction(+:sum)}) για την \en{simd} εκτέλεση του
-πολλαπλασιασμού στον εσωτερικό βρόχο (~1\en{sec} πιο γρήγορο για αρκούντως μεγάλα πολυώνυμα).
+πολλαπλασιασμού στον εσωτερικό βρόχο ($\sim$ 1\en{sec} πιο γρήγορο για αρκούντως μεγάλα πολυώνυμα).
 
 
 % Figures for Polynomial Multiplication
@@ -61,15 +60,15 @@ $res_k = \sum_{i=0}^{k}a_i \cdot b_{k-i}$. Αυτό επιτρέπει τη μη
     \caption{\en{Speedup vs threads for polynomial multiplication}}
     \label{fig:speedup_vs_threads_po}
 \end{figure}
-
+\FloatBarrier
 \underline{Συμπεράσματα}:
 Για μικρά \en{n} (πχ 100), η αύξηση των νημάτων αυξάνει τον χρόνο εκτέλεσης αφού επηρεάζεται
 κυρίως από την ύπαρξή τους. Κάθως όμως το \en{n} αυξάνεται, η αύξηση των νημάτων επιφέρει μείωση
 του χρόνου εκτέλεσης. Βέβαια το κέρδος από την εισαγωγή ενός νέου νήματος μειώνεται, ακολουθώντας
-τον νόμο της φθίνουσας απόδοσης. Για n=1000, παρατηρείται μια απότομη πτώση στην επίδοση πηγαίνοντας
-από 6 νήματα σε 12 (όπου λειτουργεί το hyperthreading πλήρως), πιθανώς λόγω της ανεπαρκούς εργασίας ανά νήμα.
+τον νόμο της φθίνουσας απόδοσης. Για \en{n}=1000, παρατηρείται μια απότομη πτώση στην επίδοση πηγαίνοντας
+από 6 νήματα σε 12 (όπου λειτουργεί το \en{hyperthreading} πλήρως), πιθανώς λόγω της ανεπαρκούς εργασίας ανά νήμα.
 Αντίστοιχα, η επιτάχυνση (με βάση το σειριακό) μεγιστοποιείται στον μέγιστο αριθμό από νήματα (πέραν της
-περίπτωσης n=1000 όπου μεγιστοποιείται για νήματα=6) και για μεγαλύτερες τιμές του \en{n}.
+περίπτωσης \en{n}=1000 όπου μεγιστοποιείται για νήματα=6) και για μεγαλύτερες τιμές του \en{n}.
 
 \section{\en{Sparse Matrix-Vector Multiplication}}
 Η δεύτερη άσκηση επικεντρώνεται στον αποδοτικό πολλαπλασιασμό πίνακα-διανύσματος με χρήση της
@@ -101,6 +100,7 @@ default: PAR}).
     \centering
     \includegraphics[width=0.8\linewidth]{graphs/speedup_vs_threads_bar_sparse.png}
     \caption{\en{Speedup vs threads: n=10000, sparsity=90, iter=50}}
+    \label{fig:sparse_threads}
 \end{figure}
 
 \begin{figure}[htbp]
@@ -115,20 +115,48 @@ default: PAR}).
     \caption{\en{Speedup vs iterations: n=10000, sparsity=90, threads=6}}
 \end{figure}
 
+% comp init with real
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{graphs/speedup_vs_threads_csr_total_bar_sparse.png}
+    \caption{\en{Speedup vs threads (Dense serial-CSR total=init+time): n=10000, sparsity=90, threads=6}}
+    \label{fig:sparse_csr_total}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{graphs/speedup_vs_threads_densepar_csr_bar_sparse.png}
+    \caption{\en{Speedup vs threads (Dense parallel-CSR): n=10000, sparsity=90, threads=6}}
+    \label{fig:sparse_densepar_csr}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{graphs/speedup_vs_threads_densepar_csrtotal_sparse.png}
+    \caption{\en{Speedup vs threads (Dense parallel-CSR total=init+time): n=10000, sparsity=90, threads=6}}
+    \label{fig:sparse_densepar_csrtotal}
+\end{figure}
+\FloatBarrier
 \underline{Συμπεράσματα}:
 Η επιτάχυνση του \en{CSR} σε σχέση με τον σειριακό αλγόριθμο είναι μεγάλη σε υψηλά \en{sparsity} και
 μεγαλύτερους σε μέγεθος πίνακες και προφανώς με την αύξηση των νημάτων γίνεται μεγαλύτερη μέχρι ένα
 σημείο. Η μετάβαση από τα 6 νήματα στα 12 δεν δίνει θεμιτή επιτάχυνση ακολουθώντας τον νόμο της 
 φθίνουσας απόδοσης. Καθώς αυξάνεται το \en{sparsity} και για αρκούντως μεγάλους πίνακες,
 το \en{CSR} υπερτερεί του απλού παράλληλου αλγορίθμου, αφού παραλείπονται οι ανούσιοι πολλαπλασιασμοί.
-% to do: na miliso kai gia to init time tou csr se sxesi me ta alla.
+Επιπλέον, η αύξηση του αριθμού των επαναλήψεων επιφέρει αύξηση στην επιτάχυνση καθώς η υπεροχή του \en{CSR}
+δρα αθροιστικά στην αύξηση του πλήθους των επαναλήψεων σε σχέση με την απλή παράλληλη εκδοχή.
+Ο χρόνος για την αρχικοποίηση του \en{CSR} αυξάνεται καθώς το πλήθος των μη μηδενικών στοιχείων αυξάνεται
+(αφού μεγαλώνουν οι πίνακες \en{values, col\_index, non\_zr}). Άρα η επιτάχυνση του \en{CSR} συνολικά 
+(\en{init time + execute time}) είναι μίκροτερη από την σύγκριση με μόνο το \en{execute time}, όπως φαίνεται και
+στα αντίστοιχα διαγράμματα (\ref{fig:sparse_threads},\ref{fig:sparse_csr_total},
+\ref{fig:sparse_densepar_csr},\ref{fig:sparse_densepar_csrtotal}). 
 
 \section{\en{Mergesort with tasks}}
-Η τρίτη άσκηση αφορά την αποδοτική υλοποίηση του \en{mergesort} με τη χρήση των \en{tasks} της Openmp.
+Η τρίτη άσκηση αφορά την αποδοτική υλοποίηση του \en{mergesort} με τη χρήση των \en{tasks} της \en{Openmp}.
 Η σειριακή υλοποίηση είναι η γνωστή. Η παράλληλη δημιουργεί ένα παράλληλο \en{block} πρώτα \en{n} νημάτων
 και ένα απο αυτά καλεί την συνάρτηση \en{parallel\_mergesort}. Μέσα στη συνάρτηση τα \en{tasks} δημιουργούνται
-αν οι υποπίνακες είναι αρκούντως μεγάλοι (> 20000, οπού η τιμή βρέθηκε μετά από πειράματα). Το νήμα που δημιουργεί
+αν οι υποπίνακες είναι αρκούντως μεγάλοι ($>$ 20000, οπού η τιμή βρέθηκε μετά από πειράματα). Το νήμα που δημιουργεί
 τα \en{tasks} περιμένει να ολοκληρώσουν μέσω της \en{taskwait}.
 
 \underline{Σημείωση}: 
@@ -139,8 +167,7 @@ default: PAR}).
     \includegraphics[width=0.8\linewidth]{graphs/speedup_vs_threads_merge.png}
     \caption{\en{Speedup vs threads for mergesort}}
 \end{figure}
-
-
+\FloatBarrier
 \underline{Συμπεράσματα}:
 Η επιτάχυνση που παρατηρείται σε σχέση με τη σειριακή υλοποίηση είναι περιορισμένη.
 Αφενός λόγω της σειριακής εκτέλεσης του \en{merge} βήματος, το οποίο χρειάζεται να
@@ -149,32 +176,6 @@ default: PAR}).
 δηλαδή είναι \en{memory-bound}, για αυτό δεν πετυχαίνεται καλή επιτάχυνση. Σε κάποιες
 περιπτώσεις, η μετάβαση από τα 6 στα 12 νήματα επιφέρει επιβράδυνση, κυρίως στα μικρότερα
 μεγέθη πινάκων.
-
-% \begin{center}
-%     \noindent\fbox{%
-%         \parbox{0.9\linewidth}{\centering
-%                 \textbf{\en{Benchmark file:}} \en{csv/bank\_results.csv}\\[6pt]
-%         }
-%     }
-% \end{center}
-
-% optional inline preview of first lines:
-% \begin{otherlanguage}{english}
-% \lstinputlisting[firstline=1,lastline=10,basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible]{csv/bank_results.csv}
-% \end{otherlanguage}
-
-% first part
-% \begin{otherlanguage}{english}
-% \lstinputlisting[basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible]{csv/bank_results_sleep.csv}
-% \end{otherlanguage}
-
-% second part
-
-
-
-
-% ensure barrier plots are placed before the CSV listing below
-% \FloatBarrier
 
 
 
