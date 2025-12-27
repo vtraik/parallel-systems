@@ -188,5 +188,3 @@ int main(int argc, char** argv){
     free(vector_in_dense);
 
 }
-
-
