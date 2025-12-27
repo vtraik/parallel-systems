@@ -25,57 +25,62 @@ int main(int argc, const char** argv){
         fprintf(stderr,"Usage: %s -n <polynomial degree>\n",argv[0]);
         exit(EXIT_FAILURE);
     }
-    struct timespec start_t, end_t;
     int n = atoi(argv[2]);
     int my_rank;
     int num_proc;
-    int* par_res = NULL;
 
     MPI_Init(NULL, NULL);
     MPI_Comm_size(MPI_COMM_WORLD,&num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
     int* pol1 = NULL;
-    int local_size = (2*n + 1) / num_proc;
-    int* l_pol1 = malloc(local_size*sizeof(*l_pol1)); // local pol1 (chunk of it)
+    int* par_res = NULL;
+    int local_size = (n + 1) / num_proc; // what about if its not divisible?
+    int rem = (n + 1) % num_proc;
+    int* l_pol1 = malloc((local_size+1)*sizeof(*l_pol1)); // local pol1 (chunk of it)
     int* pol2 = malloc((n+1)*sizeof(*pol2)); // local pol2 of each proc (whole polynomial)
     int* l_res  = calloc(2*n+1,sizeof(*l_res)); // local result (whole polynomial, 2n+1)
+    int* sendcount = NULL;
+    int* displacements = NULL;
 
     if(my_rank == 0){ // send
         pol1 = malloc((n+1)*sizeof(int));
         par_res = malloc((2*n+1)*sizeof(int));
-
+        sendcount = alloca(num_proc*sizeof(int));
+        displacements = alloca(num_proc*sizeof(int));
         srand(1);
         /* srand(time(NULL)); */
-
         for(int i=0; i<n+1; ++i){
             pol1[i] = get_rand(-50,50);
             pol2[i] = get_rand(-50,50);
         }
-
-    // recieve from != 0
-
-    } // recieve from 0
+        int csum = 0;
+        for(int i=0; i<num_proc; ++i){
+            sendcount[i] = local_size + (i < rem ? 1 : 0);
+            displacements[i] = csum;
+            csum += sendcount[i];
+        }
+    }
 
     MPI_Barrier(MPI_COMM_WORLD); // think about that
     double start_time, send_time, par_time, rec_time;
+    int my_l_pol1_size = my_rank < rem ? local_size + 1 : local_size;
     GET_TIME(start_time);
     MPI_Bcast(pol2, n+1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Scatter(pol1, local_size, MPI_INT, l_pol1, local_size, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(pol1, sendcount, displacements, MPI_INT, l_pol1, my_l_pol1_size, MPI_INT, 0, MPI_COMM_WORLD);
     GET_TIME(send_time);
     send_time -= start_time;
 
+    int my_start = my_rank * local_size +  (my_rank < rem ? my_rank : rem);
     GET_TIME(start_time);
-    for(int i=0; i<local_size; ++i){
+    for(int i=0; i<my_l_pol1_size; ++i){
         for(int j=0; j<n+1; ++j){
-            int index = i + my_rank * local_size;
+            int index = my_start + i;
             l_res[index + j] += l_pol1[i] * pol2[j];
-
         }
     }
     GET_TIME(par_time);
     par_time -= start_time;
-
     GET_TIME(start_time);
     MPI_Reduce(l_res, par_res, 2*n+1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     GET_TIME(rec_time);
@@ -83,23 +88,21 @@ int main(int argc, const char** argv){
 
     if(my_rank == 0){
         // print times
-        printf("Send time: %.6f\n",send_time);
-        printf("Parallel time: %.6f\n",par_time);
-        printf("Recieve time: %.6f\n",rec_time);
+        printf("Send time: %.10f\n",send_time);
+        printf("Parallel time: %.10f\n",par_time);
+        printf("Recieve time: %.10f\n",rec_time);
         double tot_time = send_time + par_time + rec_time;
-        printf("Total time: %.9f\n",tot_time);
-        print_pol(par_res,2*n+1);
+        printf("Total time: %.10f\n",tot_time);
+        /* print_pol(par_res,2*n+1); */
     }
 
     // free
     free(l_pol1);
-    free(pol2);
+    if(my_rank != 0) free(pol2);
     free(l_res);
-    if(my_rank == 0){
-        free(pol1);
-        free(par_res);
-    }
     MPI_Finalize();
+
+    if(my_rank != 0) return 0; // exit other proc
 
     // time serial
     int* serial_res  = calloc(2*n+1,sizeof(*serial_res));
@@ -112,7 +115,7 @@ int main(int argc, const char** argv){
     double tot_time;
     GET_TIME(tot_time);
     tot_time -= start_time;
-    printf("Serial time: %.9f\n",tot_time);
+    printf("Serial time: %.10f\n",tot_time);
 
 
     // check serial with par and print ok or not
@@ -128,4 +131,8 @@ int main(int argc, const char** argv){
     if(are_same)
         printf("Serial and Parallel are the same\n");
 
+    free(pol1);
+    free(pol2);
+    free(par_res);
+    free(serial_res);
 }
