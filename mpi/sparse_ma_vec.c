@@ -15,7 +15,7 @@ void print_vector(int* vec, int n){
 
 int get_rand(int perc, int min, int max){
     int r;
-    if(rand() % 100 < perc){ 
+    if(rand() % 100 < perc){
         return 0;
     }else{
         do{
@@ -35,7 +35,7 @@ void csr_vect_mult(int* values, int* row_index,int* col_index,
                 int sum = 0;
                 for(int k=row_index[i]; k<row_index[i+1]; ++k)
                     sum += values[k] * x[col_index[k]];
-                
+
                 y[i] = sum;
             }
 
@@ -45,14 +45,18 @@ void csr_vect_mult(int* values, int* row_index,int* col_index,
     }
 }
 
-void mat_vect_mult(int* array, int*  x, int* y, int local_n, int iter){
+void mat_vect_mult(int* local_row, int*  x, int* local_y, int local_n, int n, int iter){
     for(int it=0; it<iter; ++it){
         for(int i=0; i<local_n; ++i){
-            y[i] = 0;
-            for(int j=0; j<local_n; ++j)
-                y[i] += array[i*local_n+j] * x[j];
+            local_y[i] = 0;
+            for(int j=0; j<n; ++j)
+                local_y[i] += local_row[i*n + j] * x[j];
         }
-        memcpy(x,y,local_n*sizeof(int)); // copy to x the result
+        if(it == iter - 1){ // if last, gather to 0
+            MPI_Gather(local_y, local_n, MPI_INT, x, n, MPI_INT, 0, MPI_COMM_WORLD);
+        }else{
+            MPI_Allgather(local_y, local_n, MPI_INT, x, n, MPI_INT, MPI_COMM_WORLD);
+        }
     }
 }
 
@@ -73,11 +77,12 @@ int main(int argc, char** argv){
     MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
-    int* vector = malloc(n*sizeof(*vector));
-    int* l_out_vector = malloc(n*sizeof(*l_out_vector));
     int local_size = n / num_proc;
     int rem = n % num_proc;
-    int* l_rows = calloc(local_size+1,sizeof(int));
+    int my_proc_row_size = my_rank < rem ? local_size + 1 : local_size;
+    int* vector = malloc(n*sizeof(*vector));
+    int* l_out_vector = malloc(my_proc_row_size*sizeof(*l_out_vector)); // every proc computes local_size (/+1) elem of y
+    int* l_rows = calloc(my_proc_row_size*n,sizeof(int));
     int* out_vector = NULL;
     int* sendcount = NULL;
     int* displacements = NULL;
@@ -92,9 +97,11 @@ int main(int argc, char** argv){
         // init dense matrix, vector
         array = malloc(n*n*sizeof(*array));
         out_vector = malloc(n*sizeof(*array));
-        /* int* vector_in_dense = malloc(n*sizeof(*vector_in_dense)); */
-        int zer = 0;
+        sendcount = alloca(num_proc*sizeof(int));
+        displacements = alloca(num_proc*sizeof(int));
 
+        // int* vector_in_dense = malloc(n*sizeof(*vector_in_dense));
+        int zer = 0;
         for(int i=0; i<n; ++i){
             for(int j=0; j<n; ++j){
                 array[i*n + j] = get_rand(perc,-50,50);
@@ -103,7 +110,7 @@ int main(int argc, char** argv){
             }
             vector[i] = -50 + rand()%(50+50);
         }
-        /* memcpy(vector_in_dense,vector,n*sizeof(int)); */
+        // memcpy(vector_in_dense,vector,n*sizeof(int));
 
     //    print_vector(array,n*n);
 
@@ -135,60 +142,46 @@ int main(int argc, char** argv){
         printf("Init csr time: %.10f\n",total_time);
         ini_plus_time = total_time;
 
-
         int csum = 0;
         for(int i=0; i<num_proc; ++i){
-            sendcount[i] = local_size + (i < rem ? 1 : 0);
+            sendcount[i] = (local_size + (i < rem ? 1 : 0)) * n;
             displacements[i] = csum;
             csum += sendcount[i];
         }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-
-    int my_l_rows_size = my_rank < rem ? local_size + 1 : local_size;
     MPI_Bcast(vector, n, MPI_INT, 0, MPI_COMM_WORLD); // x gets broadcasted
     // A gets scattered into l_rows in every process
-    MPI_Scatterv(array, sendcount, displacements, MPI_INT, l_rows, my_l_rows_size, MPI_INT, 0, MPI_COMM_WORLD);
-
-    /* printf("values:\n\n"); */
-//    print_vector(values,non_zero);
-    /* printf("col_indx:\n\n"); */
-//    print_vector(col_index,non_zero);
-    /* printf("row_indx:\n\n"); */
-//    print_vector(row_index,n+1);
-
-    // csr parall
-    /* clock_gettime(CLOCK_MONOTONIC, &start_t); */
-    /* csr_vect_mult(values,row_index,col_index,vector,out_vector,n,iter,threads); */
-    /* clock_gettime(CLOCK_MONOTONIC, &end_t); */
-    /* total_time = (end_t.tv_sec - start_t.tv_sec) */
-    /*         + (end_t.tv_nsec - start_t.tv_nsec) / 1e9; */
-    /* printf("CSR parallel time: %f\n",total_time); */
-    /* ini_plus_time += total_time; */
-    /* printf("CSR init + time: %f\n",ini_plus_time); */
+    MPI_Scatterv(array, sendcount, displacements, MPI_INT, l_rows, my_proc_row_size*n, MPI_INT, 0, MPI_COMM_WORLD);
 
     if(my_rank == 0){
         free(values);
         free(col_index);
         free(row_index);
     }
+    // csr parallel
 
-    // dense parall
+    // dense parallel
+    printf("bef mult\n");
     GET_TIME(start_t);
-    mat_vect_mult(l_rows,vector,l_out_vector,my_l_rows_size,iter);
+    mat_vect_mult(l_rows, vector, l_out_vector, my_proc_row_size, n, iter); // vector has the result
     GET_TIME(end_t);
     double total_time = end_t - start_t;
-    printf("Dense parallel time: %f\n",total_time);
-
-    MPI_Gatherv(l_out_vector, n, MPI_DOUBLE, out_vector, sendcount, displacements, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if(my_rank == 0)
+        printf("Dense parallel time: %.10f\n",total_time);
+    printf("bef gath\n");
 
     free(vector);
     free(l_out_vector);
+    free(l_rows);
+    MPI_Finalize();
 
     // only root
-    free(array);
-    free(out_vector);
     /* free(vector_in_dense); */
 
+    if(my_rank == 0){
+        free(array);
+        free(out_vector);
+    }
 }

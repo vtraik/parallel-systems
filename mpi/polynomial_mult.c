@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <mpi.h>
+#include <time.h>
 #include "timer.h"
 
 void print_pol(int* pol, int n){
@@ -48,8 +49,7 @@ int main(int argc, const char** argv){
         par_res = malloc((2*n+1)*sizeof(int));
         sendcount = alloca(num_proc*sizeof(int));
         displacements = alloca(num_proc*sizeof(int));
-        srand(1);
-        /* srand(time(NULL)); */
+        srand(time(NULL));
         for(int i=0; i<n+1; ++i){
             pol1[i] = get_rand(-50,50);
             pol2[i] = get_rand(-50,50);
@@ -62,7 +62,7 @@ int main(int argc, const char** argv){
         }
     }
 
-    MPI_Barrier(MPI_COMM_WORLD); // think about that
+    MPI_Barrier(MPI_COMM_WORLD);
     double start_time, send_time, par_time, rec_time;
     int my_l_pol1_size = my_rank < rem ? local_size + 1 : local_size;
     GET_TIME(start_time);
