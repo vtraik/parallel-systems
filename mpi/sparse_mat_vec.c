@@ -4,8 +4,9 @@
 #include <string.h>
 #include <mpi.h>
 #include "timer.h"
-
-#define PAR // if defined , parallel matrix_mul runs, else serial
+#ifdef HYB
+#include <omp.h>
+#endif
 
 void print_vector(int* vec, int n){
     for(int i=0; i<n; ++i)
@@ -25,18 +26,35 @@ int get_rand(int perc, int min, int max){
     return r;
 }
 
+#ifdef HYB
+void csr_mat_vect_mult(int* l_vals, int* l_rowindx, int* l_colindx,
+                       int* x, int* local_y, int local_n, int iter, int* y_recount, int* y_recdispl, int threads){
+#else
 void csr_mat_vect_mult(int* l_vals, int* l_rowindx, int* l_colindx,
                        int* x, int* local_y, int local_n, int iter, int* y_recount, int* y_recdispl){
-    for(int it=0; it<iter; ++it){
-        for(int i=0; i<local_n; ++i){ // num of rows of this proc
-            local_y[i] = 0;
-            for(int k=l_rowindx[i]; k<l_rowindx[i+1]; ++k) //  (nz in row i) * (respective inp vec pos)
-                local_y[i] += l_vals[k] * x[l_colindx[k]];
-        }
-        if(it == iter - 1){ // if last, gather to 0
-            MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
-        }else{
-            MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+#endif
+
+    #ifdef HYB
+    #pragma omp parallel num_threads(threads)
+    #endif
+    {
+        for(int it=0; it<iter; ++it){
+            #ifdef HYB
+            #pragma omp for
+            #endif
+            for(int i=0; i<local_n; ++i){ // num of rows of this proc
+                local_y[i] = 0;
+                for(int k=l_rowindx[i]; k<l_rowindx[i+1]; ++k) //  (nz in row i) * (respective inp vec pos)
+                    local_y[i] += l_vals[k] * x[l_colindx[k]];
+            }
+            #ifdef HYB
+            #pragma omp single
+            #endif
+            if(it == iter - 1){ // if last, gather to 0
+                MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
+            }else{
+                MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+            }
         }
     }
 }
@@ -70,9 +88,9 @@ void ser_mat_vect_mult(int* array, int*  x, int* y, int n, int iter){
 }
 
 int main(int argc, char** argv){
-    if(argc != 7){
+    if(argc < 7 || argc == 8 || argc > 9){
         fprintf(stderr,"Usage: %s -n <size of nxn matrix> -p <perc of 0>\
-                -i <iter count>\n",argv[0]);
+                -i <iter count> -t <threads: If HYB defined>\n",argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -82,6 +100,9 @@ int main(int argc, char** argv){
     int num_proc, my_rank;
     int zer;
     double start_t, end_t, global_tot_time;
+    #ifdef HYB
+    int threads = argc == 9 ? atoi(argv[8]) : 0;
+    #endif
 
     MPI_Init(NULL,NULL);
     MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
@@ -285,7 +306,11 @@ int main(int argc, char** argv){
     }
 
     GET_TIME(start_t); // think about this time . Shouldnt i get from all proc ?
-    csr_mat_vect_mult(l_vals, l_rows, l_cols, vector_in_csr, l_out_vector, l_num_rows, iter, csr_sendcount, y_recdispl);
+    #ifdef HYB
+        csr_mat_vect_mult(l_vals, l_rows, l_cols, vector_in_csr, l_out_vector, l_num_rows, iter, csr_sendcount, y_recdispl, threads);
+    #else
+        csr_mat_vect_mult(l_vals, l_rows, l_cols, vector_in_csr, l_out_vector, l_num_rows, iter, csr_sendcount, y_recdispl);
+    #endif
     GET_TIME(end_t);
 
     double total_time = end_t - start_t;
