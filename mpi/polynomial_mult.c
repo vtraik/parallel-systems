@@ -102,7 +102,7 @@ int main(int argc, const char** argv){
     free(l_res);
     MPI_Finalize();
 
-    if(my_rank != 0) return 0; // exit other proc
+    if(my_rank != 0) exit(EXIT_SUCCESS); // exit other proc
 
     // time serial
     int* serial_res  = calloc(2*n+1,sizeof(*serial_res));
