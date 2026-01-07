@@ -36,7 +36,7 @@ int main(int argc, const char** argv){
 
     int* pol1 = NULL;
     int* par_res = NULL;
-    int local_size = (n + 1) / num_proc; // what about if its not divisible?
+    int local_size = (n + 1) / num_proc;
     int rem = (n + 1) % num_proc;
     int* l_pol1 = malloc((local_size+1)*sizeof(*l_pol1)); // local pol1 (chunk of it)
     int* pol2 = malloc((n+1)*sizeof(*pol2)); // local pol2 of each proc (whole polynomial)

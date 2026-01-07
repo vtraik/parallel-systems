@@ -43,9 +43,11 @@ void csr_mat_vect_mult(int* l_vals, int* l_rowindx, int* l_colindx,
             #pragma omp for
             #endif
             for(int i=0; i<local_n; ++i){ // num of rows of this proc
-                local_y[i] = 0;
+                int sum = 0;
                 for(int k=l_rowindx[i]; k<l_rowindx[i+1]; ++k) //  (nz in row i) * (respective inp vec pos)
-                    local_y[i] += l_vals[k] * x[l_colindx[k]];
+                    sum += l_vals[k] * x[l_colindx[k]];
+
+                local_y[i] = sum;
             }
             #ifdef HYB
             #pragma omp single
@@ -78,9 +80,10 @@ void mat_vect_mult(int* local_row, int*  x, int* local_y, int local_n, int n,
             #pragma omp for
             #endif
             for(int i=0; i<local_n; ++i){
-                local_y[i] = 0;
+                int sum = 0;
                 for(int j=0; j<n; ++j)
-                    local_y[i] += local_row[i*n + j] * x[j];
+                    sum += local_row[i*n + j] * x[j];
+                local_y[i] = sum;
             }
             #ifdef HYB
             #pragma omp single
@@ -153,7 +156,6 @@ int main(int argc, char** argv){
     }
     if(my_rank == 0){
         srand(time(NULL));
-        // srand(1);
 
         // init dense matrix, vector
         ser_in_vec = malloc(n*sizeof(*ser_in_vec));
@@ -195,7 +197,7 @@ int main(int argc, char** argv){
     if(my_rank == 0) printf("Dense: total send time (from 0): %.10f\n",dense_send_time);
 
     // dense parallel
-    GET_TIME(start_t); // think about this time . Shouldnt i get from all proc ?
+    GET_TIME(start_t);
     #ifdef HYB
         mat_vect_mult(l_rows, vector, l_out_vector, my_proc_row_size, n, iter, y_recount, y_recdispl, threads);
     #else
@@ -225,7 +227,7 @@ int main(int argc, char** argv){
     int* csr_non_zero_per_rank = alloca(num_proc*sizeof(int));
 
     if(my_rank == 0){
-        // init csr in parallel
+        // init csr 
         GET_TIME(start_t);
         int non_zero = n*n - zer;
         values = malloc(non_zero*sizeof(*values));
@@ -252,7 +254,7 @@ int main(int argc, char** argv){
         printf("CSR: init time: %.10f\n",total_time);
         csr_init_time = total_time;
 
-        // Distribute by non-zero arrays and not row-wise (maybe i'll add row-wise also)
+        // Distribute by non-zero arrays and not row-wise
         local_size = (n*n - zer) / num_proc;
         rem = (n*n - zer) % num_proc;
         int crank= 0, last_split = 0; // current rank's sendcount/displ, last row that we had a split
@@ -280,7 +282,7 @@ int main(int argc, char** argv){
     GET_TIME(start_t);
     MPI_Bcast(vector_in_csr, n, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(csr_sendcount, num_proc, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(csr_non_zero_per_rank, num_proc, MPI_INT, 0, MPI_COMM_WORLD); // maybe just nnz[rank] broadacsted
+    MPI_Bcast(csr_non_zero_per_rank, num_proc, MPI_INT, 0, MPI_COMM_WORLD);
     GET_TIME(end_t);
     csr_send_time = end_t - start_t;
 
@@ -330,7 +332,7 @@ int main(int argc, char** argv){
         l_rows[i] -= offset;
     }
 
-    GET_TIME(start_t); // think about this time . Shouldnt i get from all proc ?
+    GET_TIME(start_t); 
     #ifdef HYB
         csr_mat_vect_mult(l_vals, l_rows, l_cols, vector_in_csr, l_out_vector, l_num_rows, iter, csr_sendcount, y_recdispl, threads);
     #else
