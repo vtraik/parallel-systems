@@ -50,27 +50,48 @@ void csr_mat_vect_mult(int* l_vals, int* l_rowindx, int* l_colindx,
             #ifdef HYB
             #pragma omp single
             #endif
-            if(it == iter - 1){ // if last, gather to 0
-                MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
-            }else{
-                MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+            {
+                if(it == iter - 1){ // if last, gather to 0
+                    MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
+                }else{
+                    MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+                }
             }
         }
     }
 }
 
+#ifdef HYB
+void mat_vect_mult(int* local_row, int*  x, int* local_y, int local_n, int n,
+                   int iter, int* y_recount, int* y_recdispl, int threads){
+#else
 void mat_vect_mult(int* local_row, int*  x, int* local_y, int local_n, int n,
                    int iter, int* y_recount, int* y_recdispl){
-    for(int it=0; it<iter; ++it){
-        for(int i=0; i<local_n; ++i){
-            local_y[i] = 0;
-            for(int j=0; j<n; ++j)
-                local_y[i] += local_row[i*n + j] * x[j];
-        }
-        if(it == iter - 1){ // if last, gather to 0
-            MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
-        }else{
-            MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+#endif
+
+    #ifdef HYB
+    #pragma omp parallel num_threads(threads)
+    #endif
+    {
+        for(int it=0; it<iter; ++it){
+            #ifdef HYB
+            #pragma omp for
+            #endif
+            for(int i=0; i<local_n; ++i){
+                local_y[i] = 0;
+                for(int j=0; j<n; ++j)
+                    local_y[i] += local_row[i*n + j] * x[j];
+            }
+            #ifdef HYB
+            #pragma omp single
+            #endif
+            {
+                if(it == iter - 1){ // if last, gather to 0
+                    MPI_Gatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, 0, MPI_COMM_WORLD);
+                }else{
+                    MPI_Allgatherv(local_y, local_n, MPI_INT, x, y_recount, y_recdispl, MPI_INT, MPI_COMM_WORLD);
+                }
+            }
         }
     }
 }
@@ -175,7 +196,11 @@ int main(int argc, char** argv){
 
     // dense parallel
     GET_TIME(start_t); // think about this time . Shouldnt i get from all proc ?
-    mat_vect_mult(l_rows, vector, l_out_vector, my_proc_row_size, n, iter, y_recount, y_recdispl); // vector has the result
+    #ifdef HYB
+        mat_vect_mult(l_rows, vector, l_out_vector, my_proc_row_size, n, iter, y_recount, y_recdispl, threads);
+    #else
+        mat_vect_mult(l_rows, vector, l_out_vector, my_proc_row_size, n, iter, y_recount, y_recdispl); // vector has the result
+    #endif
     GET_TIME(end_t);
     double dense_ex_time = end_t - start_t;
     // keep slowest proc time
@@ -331,6 +356,9 @@ int main(int argc, char** argv){
     MPI_Finalize();
 
     // serial mat-vect and check with others
+    #ifdef HYB
+    goto END;
+    #endif
     if(my_rank == 0){
         int* ser_out_vec = malloc(n*sizeof(*ser_in_vec));
         GET_TIME(start_t);
@@ -354,6 +382,9 @@ int main(int argc, char** argv){
         free(ser_out_vec);
     }
 
+#ifdef HYB
+END:
+#endif
     // only root
     if(my_rank == 0){
         free(array);
