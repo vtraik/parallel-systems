@@ -42,7 +42,7 @@ double simd_mul_O1(const int n){
         int j;
         __m256i vp1 = _mm256_set1_epi32(pol1[i]); // extend to vec of 8 elem
         for (j=0; j+31<=n; j+=32){
-            __m256i vp2_1 = _mm256_loadu_si256((__m256i*)&pol2[j]); // 8 elem
+            __m256i vp2_1 = _mm256_loadu_si256((__m256i*)&pol2[j]);
             __m256i vp2_2 = _mm256_loadu_si256((__m256i*)&pol2[j+8]);
             __m256i vp2_3 = _mm256_loadu_si256((__m256i*)&pol2[j+16]);
             __m256i vp2_4 = _mm256_loadu_si256((__m256i*)&pol2[j+24]);
@@ -73,7 +73,7 @@ double simd_mul_O1(const int n){
     return end_t - start_t;
 }
 
-double simd_mul_O0(const int n){
+double simd_mul(const int n){
     double start_t, end_t;
     GET_TIME(start_t);
     for(int i=0; i<=n; ++i){
@@ -82,12 +82,8 @@ double simd_mul_O0(const int n){
         register int* base_prod = &prod_par[i];
         register int* base_pol2 = &pol2[0];
         for (j=0; j+31<=n; j+=32){
-            _mm_prefetch((const char*)(base_pol2 + 64), _MM_HINT_T0); // -0.2sec 100k
+            _mm_prefetch((const char*)(base_pol2 + 64), _MM_HINT_T0);
             _mm_prefetch((const char*)(base_prod + 64), _MM_HINT_T0);
-            // base impl O0m with O1 is opt 1.3:
-            // this interleaving saves 0.2/0.5 sec in 100k/200k, unrolling 7.9->5.7: 2.2sec | 200k: 23.56 -> 22.96
-            // ACUM impl:
-            // Also ptr arithm saves: 1.3sec | ACCUM saves: 0.6 sec
             ACCUMULATE_8(base_pol2,    base_prod,      vp1);
             ACCUMULATE_8(base_pol2+8,  base_prod+8,  vp1);
             ACCUMULATE_8(base_pol2+16, base_prod+16, vp1);
@@ -147,11 +143,13 @@ int main(int argc, const char** argv){
     total = serial_mul(n);
     printf("Serial time: %.9f\n",total);
 
-    total = simd_mul_O0(n);
-    printf("Parallel time (O0): %.9f\n",total);
-
-    total = simd_mul_O1(n);
-    printf("Parallel time (O1): %.9f\n",total);
+    #ifdef O0
+        total = simd_mul(n);
+        printf("Parallel time (O0): %.9f\n",total);
+    #elif O1
+        total = simd_mul_O1(n);
+        printf("Parallel time (O1): %.9f\n",total);
+    #endif
 
     // check serial with par and print ok or not
     unsigned are_same = 1;
